@@ -1,14 +1,14 @@
-# Ricerca di Pattern Comportamentali di Bambini con Neurodiversità
+# Behavioral Pattern Analysis of Children with Neurodiversity: An Association Rules-Based Approach.
 
-Questo repository contiene il codice sorgente e i dataset utilizzati per la tesi "Ricerca di pattern comportamentali di bambini con neurodiversità: un approccio basato su regole di associazione".
+This repository contains the source code and datasets used for the thesis "Behavioral Pattern Analysis of Children with Neurodiversity: An Association Rules-Based Approach."
 
-## Descrizione del Progetto
+## Project Description
 
-Il progetto mira a identificare pattern comportamentali nei bambini con neurodiversità utilizzando tecniche di data mining basate su regole di associazione. Il codice nel repository è scritto in R e include script per la pulizia dei dati, l'analisi e la visualizzazione dei risultati.
+The project aims to identify behavioral patterns in children with neurodiversity using data mining techniques based on association rules. The code in this repository is written in R and includes scripts for data cleaning, analysis, and result visualization.
 
 ## Contenuto del Repository
 
-- `Codice_Tesi.Rmd`: Codice sorgente in formato R Markdown utilizzato per l'analisi dei dati e la generazione del report.
-- `Codice_Tesi.html`: Versione HTML renderizzata del codice R Markdown, contenente i risultati dell'analisi.
-- `data.xlsx`: Dataset per la prima parte di analisi.
-- `Codice_Tesi.html`: Dataset per la seconda parte di analisi, leggermente pulito rispetto al primo.
+- `Codice_Tesi.Rmd`: Source code in R Markdown format used for data analysis and report generation.
+- `Codice_Tesi.html`: Rendered HTML version of the R Markdown code, containing the analysis results.
+- `data.xlsx`: Dataset for the first part of the analysis.
+- `Codice_Tesi.html`: Dataset for the second part of the analysis, slightly cleaned compared to the first.
