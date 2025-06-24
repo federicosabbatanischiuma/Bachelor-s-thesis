@@ -1,0 +1,691 @@
+---
+title: 'Ricerca di pattern comportamentali di bambini con neurodiversità: un approccio
+  basato su regole di associazione.'
+output:
+ 
+  html_document: default
+date: "`r Sys.Date()`"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, results='hide', warning=FALSE, message=FALSE, fig.show='hide')
+```
+
+
+```{r}
+# Load the required library
+library(arules)
+library(arulesSequences)
+library(dplyr)
+library(purrr)
+library(readxl)
+library(stringr)
+library(forcats)
+library(ggplot2)
+library(arulesViz)
+library(tidyr)
+library(plotly)
+```
+
+# Analisi con regole di associazione
+
+```{r}
+# Load and clean the data
+dati<-read_excel("~/Desktop/TESI/dati/data.xlsx")
+dati <- dati[complete.cases(dati), ]
+#View(dati)
+dati %>% mutate(behaviours = as.factor(behaviours))
+dati %>% mutate(type = as.factor(type))
+
+#new names for the behaviors to make the dataset better to be read
+dati$behaviours <- gsub("Engagement_positivo", "EP", dati$behaviours)
+dati$behaviours <- gsub("sociali_neg_compagni", "SNC", dati$behaviours)
+dati$behaviours <- gsub("insegnate_istruzioni", "InsIstr", dati$behaviours)
+dati$behaviours <- gsub("insegnati_commenti", "InsComm", dati$behaviours)
+dati$behaviours <- gsub("Crash_attivit√†", "CrashAtt", dati$behaviours)
+dati$behaviours <- gsub("sociali_neg_adulti", "SNA", dati$behaviours)
+dati$behaviours <- gsub("sociali_pos_adulto", "SPA", dati$behaviours)
+dati$behaviours <- gsub("sociali_pos_compagni", "SPC", dati$behaviours)
+dati$behaviours <- gsub("Engagement_negativo", "EN", dati$behaviours)
+dati$behaviours <- gsub("azione_non_OK", "AzNOK", dati$behaviours)
+dati$behaviours <- gsub("azione_OK", "AzOK", dati$behaviours)
+dati$behaviours <- gsub("Errore_Kinect", "EK", dati$behaviours)
+dati$behaviours <- gsub("Stereotipia", "Stereo", dati$behaviours)
+write.csv(dati,'~/Desktop/TESI/DATI/dati_belli.csv', quote = FALSE, row.names = FALSE)
+
+#remove useless variables
+dati <- dati %>%
+  mutate(duration = NULL, tiemstamps = NULL, starttime=NULL, endtime=NULL, school=NULL, Observer=NULL, sessionName=NULL)
+```
+
+```{r}
+#create new datasets for normotypical and atypical children
+normotypical_dati <- subset(dati, dati$type == "Normotypical")
+atypical_dati <- subset(dati, dati$type == "Atypical")
+
+atypical_dati$behaviours<- lapply(strsplit(atypical_dati$behaviours, ","), unique)
+atypical_dati$behaviours <- sapply(atypical_dati$behaviours, paste, collapse = ",")
+
+normotypical_dati$behaviours<- lapply(strsplit(normotypical_dati$behaviours, ","), unique)
+normotypical_dati$behaviours <- sapply(normotypical_dati$behaviours, paste, collapse = ",")
+
+dati$behaviours<- lapply(strsplit(dati$behaviours, ","), unique)
+dati$behaviours <- sapply(dati$behaviours, paste, collapse = ",")
+
+atypical_dati $amounts <- NULL
+normotypical_dati $amounts <- NULL
+dati $amounts <- NULL
+
+atypical_dati $ID <- NULL
+atypical_dati $type <- NULL
+
+normotypical_dati $ID <- NULL
+normotypical_dati $type <- NULL
+```
+### Generazione delle regole di associazione
+
+**Atipici**
+```{r}
+write.csv(atypical_dati,"~/Desktop/TESI/dati/atypical_transaction.csv", quote = FALSE, row.names = FALSE)
+
+#skip = 1 or it reads the head of the column
+tr <- read.transactions("~/Desktop/TESI/dati/atypical_transaction.csv", format = 'basket', sep=',', skip = 1)
+tr
+
+# Create an item frequency plot for the top 20 items
+if (!require("RColorBrewer")) {
+  # install color package of R
+  install.packages("RColorBrewer")
+  #include library RColorBrewer
+  library(RColorBrewer)
+}
+itemFrequencyPlot(tr,topN=14,type="absolute",col=brewer.pal(8,'Pastel2'), ylab = "Frequenze assolute")
+itemFrequencyPlot(tr,topN=14,type="relative",col=brewer.pal(8,'Pastel2'), ylab = "Frequenze relative")
+
+# Min Support as 0.1, confidence as 0.8.
+association.rules <- apriori(tr, parameter = list(supp=0.1, conf=0.8, minlen = 2))
+
+measures <- interestMeasure(association.rules, measure = c( "leverage", "conviction", "coverage", "chiSquared", "collectiveStrength"),
+                            transactions = tr)
+
+association_rules_df <- as(association.rules, "data.frame")
+
+# convert interest measures in a dataframe
+measures_df <- as.data.frame(measures)
+
+# join interest measures dataset with the one of rules
+association_rules_with_measures <- cbind(association_rules_df, measures_df)
+
+head(association_rules_with_measures)
+
+summary(association.rules)
+inspect(association.rules[1:5])
+```
+
+**Normotipici**
+```{r}
+write.csv(normotypical_dati,"~/Desktop/TESI/DATI/normotypical_transaction.csv", quote = FALSE, row.names = FALSE)
+
+#skip = 1 sennò il comando inlcude anche il titolo della colonna
+tr3 <- read.transactions("~/Desktop/TESI/DATI/normotypical_transaction.csv", format = 'basket', sep=',', skip = 1)
+tr3
+
+# Create an item frequency plot for the top 20 items
+if (!require("RColorBrewer")) {
+  # install color package of R
+  install.packages("RColorBrewer")
+  #include library RColorBrewer
+  library(RColorBrewer)
+}
+itemFrequencyPlot(tr3,topN = 14,type="absolute",col=brewer.pal(8,'Pastel2'), ylab = "Frequenze assolute")
+itemFrequencyPlot(tr3,topN=14,type="relative",col=brewer.pal(8,'Pastel2'),ylab = "Frequenze relative")
+
+association.rules <- apriori(tr3, parameter = list(supp=0.05, conf=0.8, minlen=2))
+
+inspect(association.rules[1:25])
+```
+
+```{r}
+rm(list = ls())
+graphics.off()
+```
+
+
+# Analisi con regole sequenziali
+```{r}
+# Load the data
+data <- read_excel("dati.xlsx")
+```
+
+
+```{r}
+# Define a function to transform sequences
+transform_sequence <- function(seq_string, amount_string) {
+  # Split the sequence and amount strings into vectors
+  seq_vec <- strsplit(seq_string, ",")[[1]]
+  amount_vec <- strsplit(amount_string, ",")[[1]]
+  
+  # Initialize an empty vector to store transformed sequence
+  transformed_seq <- character(sum(as.numeric(amount_vec)))
+  
+  # Loop through each event and amount
+  idx <- 1
+  for (i in 1:length(seq_vec)) {
+    # Repeat each event based on the corresponding amount
+    for (j in 1:as.numeric(amount_vec[i])) {
+      transformed_seq[idx] <- seq_vec[i]
+      idx <- idx + 1
+    }
+  }
+  
+  # Return the transformed sequence as a comma-separated string
+  return(paste(transformed_seq, collapse = ","))
+}
+
+
+# Apply the transformation function to each row
+data <- data %>%
+  mutate(behaviour_new = mapply(transform_sequence, behaviours, amounts))
+
+# Remove leading commas
+data$behaviour_new <- gsub("^,+", "", data$behaviour_new)
+#head(data,10)
+```
+
+```{r}
+# Separate normotypical and atypical 
+normotypical_data <- data %>% filter(type == "Normotypical")
+atypical_data <- data %>% filter(type == "Atypical")
+```
+
+### Frequenze dei comportamenti
+
+```{r}
+# Plot the frequency of behaviors
+
+
+custom_colors <- c(
+  "EP" = "#A9D0A6",
+  "SPC" = "#F4A582",
+  "SPA" = "#92C5DE",
+  "EN" = "#DDA0DD",
+  "InsIstr" = "#FFFF99",
+  "InsComm" = "#E6AB02",
+  "SNA" = "#B3B3B3",
+  "SNC" = "#E5A76E",
+  "CrashAtt" = "#B2DF8A",
+  "AzNOK" = "#FBB4AE",
+  "AzOK" = "#B2ABD2",
+  "EK" = "#FDB462",
+  "Stereo" = "#80B1D3"
+)
+
+absolute_freq_plot <- normotypical_data %>%
+  separate_rows(behaviour_new, sep = ",") %>%
+  count(behaviour_new) %>%
+  ggplot(aes(x = reorder(behaviour_new, -n), y = n, fill = behaviour_new)) +
+  geom_bar(stat = "identity", color = "black", width = 0.8, size = 0.2) +  # Thin bars with minimal space
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    
+    y = "Frequenze assolute"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Keep x-axis text
+    axis.title.x = element_blank(),  # Remove x-axis title
+    axis.title.y = element_text(size = 12),
+    panel.grid = element_blank(),  # Remove grid
+    panel.background = element_blank(),  # Remove background
+    axis.line = element_line(color = "black"),  # Add axis lines
+    axis.ticks = element_line(color = "black"),  # Add axis ticks
+    legend.position = "none",  # Remove legend
+    plot.margin = unit(c(1, 1, 1, 1), "cm")  # Reduce margins
+  )
+
+# Display plot with adjusted width and height
+print(absolute_freq_plot)
+
+# Relative Frequency Plot
+relative_freq_plot <- normotypical_data %>%
+  separate_rows(behaviour_new, sep = ",") %>%
+  count(behaviour_new) %>%
+  mutate(relative_frequency = n / sum(n)) %>%
+  ggplot(aes(x = reorder(behaviour_new, -relative_frequency), y = relative_frequency, fill = behaviour_new)) +
+  geom_bar(stat = "identity", color = "black", width = 0.8, size = 0.2) +  # Thin bars with minimal space
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    
+    y = "Frequenze relative"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Keep x-axis text
+    axis.title.x = element_blank(),  # Remove x-axis title
+    axis.title.y = element_text(size = 12),
+    panel.grid = element_blank(),  # Remove grid
+    panel.background = element_blank(),  # Remove background
+    axis.line = element_line(color = "black"),  # Add axis lines
+    axis.ticks = element_line(color = "black"),  # Add axis ticks
+    legend.position = "none",  # Remove legend
+    plot.margin = unit(c(1, 1, 1, 1), "cm")  # Reduce margins
+  )
+
+# Display plot with adjusted width and height
+print(relative_freq_plot)
+
+combined_data <- normotypical_data %>%
+  separate_rows(behaviour_new, sep = ",") %>%
+  count(behaviour_new) %>%
+  mutate(relative_frequency = n / sum(n)) %>%
+  gather(key = "frequency_type", value = "frequency", n, relative_frequency) %>%
+  mutate(frequency_type = recode(frequency_type, "n" = "Absolute Frequency", "relative_frequency" = "Relative Frequency"))
+
+# Plot combined data
+combined_plot <- ggplot(combined_data, aes(x = reorder(behaviour_new, -frequency), y = frequency, fill = behaviour_new)) +
+  geom_bar(stat = "identity", color = "black", width = 0.8, size = 0.2) +  # Thin bars with minimal space
+  scale_fill_manual(values = custom_colors) +
+  facet_wrap(~frequency_type, scales = "free_y", strip.position = "left") +
+  labs(
+    x = "Behavior"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 9, angle = 0, hjust = .5),  # Facet labels as y-axis titles
+    strip.placement = "outside",
+    plot.title = element_blank(),  # Remove plot title
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Keep x-axis text
+    axis.title.x = element_blank(),  # Remove x-axis title
+    axis.title.y = element_blank(),  # Remove y-axis title
+    panel.grid = element_blank(),  # Remove grid
+    panel.background = element_blank(),  # Remove background
+    axis.line = element_line(color = "black"),  # Add axis lines
+    axis.ticks = element_line(color = "black"),  # Add axis ticks
+    legend.position = "none",  # Remove legend
+    plot.margin = unit(c(1, 1, 1, 1), "cm"),  # Reduce margins
+    panel.spacing = unit(2, "cm")  # Add space between panels
+  )
+
+# Display the combined plot
+print(combined_plot)
+# Calculate absolute and relative frequencies
+frequency_table <- normotypical_data %>%
+  separate_rows(behaviour_new, sep = ",") %>%
+  count(behaviour_new) %>%
+  mutate(relative_frequency = n / sum(n)) %>%
+  arrange(desc(n))
+
+# Display the table
+print(frequency_table)
+
+
+
+
+```
+
+
+```{r}
+ # Plot the frequency of behaviors
+
+absolute_freq_plot <- atypical_data %>%
+  separate_rows(behaviour_new, sep = ",") %>%
+  count(behaviour_new) %>%
+  ggplot(aes(x = reorder(behaviour_new, -n), y = n, fill = behaviour_new)) +
+  geom_bar(stat = "identity", color = "black", width = 0.8, size = 0.2) +  # Thin bars with minimal space
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    
+    y = "Frequenze assolute"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Keep x-axis text
+    axis.title.x = element_blank(),  # Remove x-axis title
+    axis.title.y = element_text(size = 12),
+    panel.grid = element_blank(),  # Remove grid
+    panel.background = element_blank(),  # Remove background
+    axis.line = element_line(color = "black"),  # Add axis lines
+    axis.ticks = element_line(color = "black"),  # Add axis ticks
+    legend.position = "none",  # Remove legend
+    plot.margin = unit(c(1, 1, 1, 1), "cm")  # Reduce margins
+  )
+
+# Display plot with adjusted width and height
+print(absolute_freq_plot)
+
+# Relative Frequency Plot
+relative_freq_plot <- atypical_data %>%
+  separate_rows(behaviour_new, sep = ",") %>%
+  count(behaviour_new) %>%
+  mutate(relative_frequency = n / sum(n)) %>%
+  ggplot(aes(x = reorder(behaviour_new, -relative_frequency), y = relative_frequency, fill = behaviour_new)) +
+  geom_bar(stat = "identity", color = "black", width = 0.8, size = 0.2) +  # Thin bars with minimal space
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    
+    y = "Frequenze relative"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Keep x-axis text
+    axis.title.x = element_blank(),  # Remove x-axis title
+    axis.title.y = element_text(size = 12),
+    panel.grid = element_blank(),  # Remove grid
+    panel.background = element_blank(),  # Remove background
+    axis.line = element_line(color = "black"),  # Add axis lines
+    axis.ticks = element_line(color = "black"),  # Add axis ticks
+    legend.position = "none",  # Remove legend
+    plot.margin = unit(c(1, 1, 1, 1), "cm")  # Reduce margins
+  )
+
+# Display plot with adjusted width and height
+print(relative_freq_plot)
+
+combined_data <- atypical_data %>%
+  separate_rows(behaviour_new, sep = ",") %>%
+  count(behaviour_new) %>%
+  mutate(relative_frequency = n / sum(n)) %>%
+  gather(key = "frequency_type", value = "frequency", n, relative_frequency) %>%
+  mutate(frequency_type = recode(frequency_type, "n" = "Absolute Frequency", "relative_frequency" = "Relative Frequency"))
+
+# Plot combined data
+combined_plot <- ggplot(combined_data, aes(x = reorder(behaviour_new, -frequency), y = frequency, fill = behaviour_new)) +
+  geom_bar(stat = "identity", color = "black", width = 0.8, size = 0.2) +  # Thin bars with minimal space
+  scale_fill_manual(values = custom_colors) +
+  facet_wrap(~frequency_type, scales = "free_y", strip.position = "left") +
+  labs(
+    x = "Behavior"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 9, angle = 0, hjust = .5),  # Facet labels as y-axis titles
+    strip.placement = "outside",
+    plot.title = element_blank(),  # Remove plot title
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),  # Keep x-axis text
+    axis.title.x = element_blank(),  # Remove x-axis title
+    axis.title.y = element_blank(),  # Remove y-axis title
+    panel.grid = element_blank(),  # Remove grid
+    panel.background = element_blank(),  # Remove background
+    axis.line = element_line(color = "black"),  # Add axis lines
+    axis.ticks = element_line(color = "black"),  # Add axis ticks
+    legend.position = "none",  # Remove legend
+    plot.margin = unit(c(1, 1, 1, 1), "cm"),  # Reduce margins
+    panel.spacing = unit(2, "cm")  # Add space between panels
+  )
+
+# Display the combined plot
+print(combined_plot)
+
+frequency_table <- atypical_data %>%
+  separate_rows(behaviour_new, sep = ",") %>%
+  count(behaviour_new) %>%
+  mutate(relative_frequency = n / sum(n)) %>%
+  arrange(desc(n))
+
+# Display the table
+print(frequency_table)
+```
+### Generazione delle Regole sequenziali
+
+```{r}
+# Initialize an empty list to store transformed data
+transformed_data <- list()
+
+# Loop through each row of the normotypical_data dataframe
+for (i in 1:nrow(normotypical_data)) {
+  # Extract ID from the current row
+  current_ID <- normotypical_data$ID[i]
+  
+  # Extract behaviors from the current row
+  current_behaviors <- unlist(strsplit(normotypical_data$behaviour_new[i], ","))
+  
+  # Create sequence of event IDs
+  event_IDs <- seq_along(current_behaviors)
+  
+  # Create sequence IDs
+  sequence_IDs <- rep(i, length(current_behaviors))
+  
+  # Combine the extracted data into a data frame
+  row_data <- data.frame(ID = current_ID,
+                         Items = current_behaviors,
+                         sequenceID = sequence_IDs,
+                         eventID = event_IDs)
+  
+  # Append the row_data to the transformed_data list
+  transformed_data[[i]] <- row_data
+}
+
+# Combine all rows into a single dataframe
+normotypical_data <- do.call(rbind, transformed_data)
+
+# Reset row names
+rownames(normotypical_data) <- NULL
+
+# Print the sample of normotypical_data 
+normotypical_data$Items <- as.factor(normotypical_data$Items)
+#head(normotypical_data,10)
+```
+
+
+```{r}
+# Initialize an empty list to store transformed data
+transformed_data <- list()
+
+# Loop through each row of the atypical_data dataframe
+for (i in 1:nrow(atypical_data)) {
+  # Extract ID from the current row
+  current_ID <- atypical_data$ID[i]
+  
+  # Extract behaviors from the current row
+  current_behaviors <- unlist(strsplit(atypical_data$behaviour_new[i], ","))
+  
+  # Create sequence of event IDs
+  event_IDs <- seq_along(current_behaviors)
+  
+  # Create sequence IDs
+  sequence_IDs <- rep(i, length(current_behaviors))
+  
+  # Combine the extracted data into a data frame
+  row_data <- data.frame(ID = current_ID,
+                         Items = current_behaviors,
+                         sequenceID = sequence_IDs,
+                         eventID = event_IDs)
+  
+  # Append the row_data to the transformed_data list
+  transformed_data[[i]] <- row_data
+}
+
+# Combine all rows into a single dataframe
+atypical_data <- do.call(rbind, transformed_data)
+
+# Reset row names
+rownames(atypical_data) <- NULL
+
+# Print the sample of transformed data
+atypical_data$Items <- as.factor(atypical_data$Items )
+#head(atypical_data,10)
+```
+
+**Normotipici**
+
+```{r}
+# Create sequence objects for normotypical 
+normotypical_sessions <-  as(normotypical_data %>% transmute(items =Items), "transactions")
+transactionInfo(normotypical_sessions)$sequenceID <- normotypical_data$sequenceID
+transactionInfo(normotypical_sessions)$eventID <-  normotypical_data$eventID
+```
+
+```{r}
+# Remove "Item" in the rows in normotypical
+itemLabels(normotypical_sessions) <- str_replace_all(itemLabels(normotypical_sessions), "items=", "")
+```
+
+```{r}
+# Perform sequence mining algorithm for normotypical using the cSPADE algorithm
+a = 0.05
+b = 1
+c = 1
+d = 6
+
+itemsets_normotypical <- cspade(normotypical_sessions, 
+                   parameter = list(support = a, mingap = b, maxgap = c, maxlen = d), 
+                   control = list(verbose = TRUE))
+summary(itemsets_normotypical)
+
+
+
+
+```
+
+```{r}
+# Convert back the normotypical to data frame
+itemsets_normotypical_df <- as(itemsets_normotypical, "data.frame") %>% as_tibble()
+```
+
+```{r}
+# Get induced temporal rules from frequent item sets
+itemLabels(normotypical_sessions) <- str_replace_all(itemLabels(normotypical_sessions), "items=", "")
+
+
+itemsets_normotypical <- cspade(normotypical_sessions, 
+                                parameter = list(support = a, mingap = b, maxgap = c, maxlen = d), 
+                                control = list(verbose = TRUE))
+summary(itemsets_normotypical)
+
+e = 0.9
+
+rules_normotypical <- ruleInduction(itemsets_normotypical, confidence = e, 
+                                    control = list(verbose = TRUE))
+
+
+rule_normotypical_df <- as(rules_normotypical, "data.frame")
+
+
+support_rules <- quality(rules_normotypical)$support
+
+
+get_support <- function(sequences, itemsets) {
+  sapply(sequences, function(seq) {
+    sum(sapply(itemsets, function(itemset) all(seq %in% itemset))) / length(itemsets)
+  })
+}
+
+
+itemsets_list <- LIST(itemsets_normotypical)
+
+
+antecedents <- LIST(lhs(rules_normotypical))
+consequents <- LIST(rhs(rules_normotypical))
+
+
+support_antecedent <- get_support(antecedents, itemsets_list)
+support_consequent <- get_support(consequents, itemsets_list)
+
+
+rule_normotypical_df$leverage <- support_rules - (support_antecedent * support_consequent)
+get_jaccard <- function(antecedents, consequents, itemsets) {
+  intersect_support <- get_support(mapply(c, antecedents, consequents, SIMPLIFY = FALSE), itemsets)
+  union_support <- support_antecedent + support_consequent - intersect_support
+  intersect_support / union_support
+}
+
+
+jaccard_values <- get_jaccard(antecedents, consequents, itemsets_list)
+
+
+rule_normotypical_df$jaccard <- jaccard_values
+
+rule_normotypical_df$rpf <- support_rules * quality(rules_normotypical)$confidence
+
+
+
+
+
+
+
+print(head(rule_normotypical_df, 100))
+
+rule_normotypical_df <- rule_normotypical_df %>% arrange(desc(lift))
+print(head(rule_normotypical_df, 100))
+
+
+```
+
+**Atipici**
+
+```{r}
+# Create sequence objects for atypical 
+atypical_sessions <-  as(atypical_data %>% transmute(items =Items), "transactions")
+transactionInfo(atypical_sessions)$sequenceID <- atypical_data$sequenceID
+transactionInfo(atypical_sessions)$eventID <-  1:nrow(atypical_data)
+```
+
+```{r}
+# Remove "Item" in the rows in atypical
+itemLabels(atypical_sessions) <- str_replace_all(itemLabels(atypical_sessions), "items=", "")
+
+```
+
+```{r}
+# Perform sequence mining algorithm for atypical
+a = 0.5
+b = 5
+
+itemsets_atypical <- cspade(atypical_sessions, 
+                   parameter = list(support = a,maxlen = b), 
+                   control = list(verbose = TRUE))
+summary(itemsets_atypical)
+
+
+#SUPPORTO (MAXLEN = 5)
+
+lunghezzenorm_supp <- rep(1:10)
+lunghezzeat_supp <- rep(1:10)
+x<-lunghezzeat_supp/10
+for (i in 1:10) {
+  itemsets_normotypical <- cspade(normotypical_sessions, 
+                                  parameter = list(support = x[i], maxlen = b),
+                                  control = list(verbose = TRUE))
+  lunghezzenorm_supp[i] <- length(itemsets_normotypical)
+}
+
+for (i in 1:10) {
+  itemsets_atypical <- cspade(atypical_sessions, 
+                              parameter = list(support = x[i],maxlen = b), 
+                              control = list(verbose = TRUE))
+  lunghezzeat_supp[i] <- length(itemsets_atypical)
+}
+options(scipen = 999)
+plot(x, lunghezzeat_supp, type = "o", col = "blue", pch = 1, ylab = "Numero di sequenze", xlab = "Supporto", lwd = 2)
+lines(x, lunghezzenorm_supp, type = "o", col = "red", pch = 1, lwd = 2)
+legend("topright", legend = c("Atipici", "Normotipici"), col = c("blue", "red"), lty = 1, lwd = 2)
+
+
+```
+
+```{r}
+# Convert back the atypical to data frame
+itemsets_atypical_df <- as(itemsets_atypical, "data.frame") %>% as_tibble()
+```
+
+```{r}
+# Get induced temporal rules from frequent item sets
+c = 0.5
+a = 0.5
+b = 5
+
+itemsets_atypical <- cspade(atypical_sessions, 
+                   parameter = list(support = a,maxlen = b), 
+                   control = list(verbose = TRUE))
+summary(itemsets_atypical)
+rule_atypical <- as(ruleInduction(itemsets_atypical, confidence = c, 
+                                  control = list(verbose = TRUE)), "data.frame")
+
+rule_atypical <- rule_atypical %>% arrange(desc(support))
+head(rule_atypical, 100)
+```
