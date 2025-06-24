@@ -6,7 +6,7 @@ This repository contains the source code and datasets used for the thesis "Behav
 
 The project aims to identify behavioral patterns in children with neurodiversity using data mining techniques based on association rules. The code in this repository is written in R and includes scripts for data cleaning, analysis, and result visualization.
 
-## Contenuto del Repository
+## Repository Contents
 
 - `Codice_Tesi.Rmd`: Source code in R Markdown format used for data analysis and report generation.
 - `Codice_Tesi.html`: Rendered HTML version of the R Markdown code, containing the analysis results.
